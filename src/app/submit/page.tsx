@@ -6,11 +6,11 @@ import Image from 'next/image';
 import Link from 'next/link';
 import confetti from 'canvas-confetti';
 
-let _confettiFn: ((opts?: any) => any) | null = null;
+let _confettiFn: any = null;
 let _confettiLoadingPromise: Promise<any> | null = null;
 
 function getConfettiFn(): Promise<(opts?: any) => any> {
-  if (_confettiFn) return Promise.resolve(_confettiFn);
+  if (_confettiFn) return Promise.resolve(_confettiFn as (opts?: any) => any);
   if (_confettiLoadingPromise) return _confettiLoadingPromise;
 
   // 尝试从打包模块获取
@@ -235,17 +235,8 @@ export default function SubmitPage() {
     setErrorMsg('');
     try {
       let imageUrl: string | undefined;
-
-      if (image) {
-        const formData = new FormData();
-        formData.append('image', image);
-        const uploadRes = await fetch('/api/upload', {
-          method: 'POST',
-          body: formData,
-        });
-        if (!uploadRes.ok) throw new Error('图片上传失败');
-        const uploadData = await uploadRes.json();
-        imageUrl = uploadData.url;
+      if (imagePreview) {
+        imageUrl = imagePreview;
       }
 
       const res = await fetch('/api/blessings', {

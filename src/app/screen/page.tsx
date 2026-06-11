@@ -8,11 +8,11 @@ import Link from 'next/link';
 import gsap from 'gsap';
 import confetti from 'canvas-confetti';
 
-let _confettiFn: ((opts?: any) => any) | null = null;
+let _confettiFn: any = null;
 let _confettiLoadingPromise: Promise<any> | null = null;
 
 function getConfettiFn(): Promise<(opts?: any) => any> {
-  if (_confettiFn) return Promise.resolve(_confettiFn);
+  if (_confettiFn) return Promise.resolve(_confettiFn as (opts?: any) => any);
   if (_confettiLoadingPromise) return _confettiLoadingPromise;
 
   // 尝试从打包模块获取
