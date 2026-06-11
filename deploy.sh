@@ -1,12 +1,10 @@
 #!/usr/bin/env bash
 # ============================================================
 # 毕业祝福墙 · 一键部署脚本
-# 适用：Ubuntu 22.04 / 阿里云轻量应用服务器（香港地域推荐）
+# 适用：Ubuntu 22.04 / 腾讯云或阿里云轻量应用服务器（香港地域推荐）
 #
 # 用法（在服务器上以 root 执行）：
-#   curl -sL https://raw.githubusercontent.com/你的用户名/graduation-blessing/main/deploy.sh -o deploy.sh && bash deploy.sh
-# 或：
-#   git clone https://github.com/你的用户名/graduation-blessing.git
+#   git clone https://github.com/2924205056/graduation-blessing.git
 #   cd graduation-blessing && bash deploy.sh
 #
 # 部署后访问：
@@ -81,7 +79,7 @@ else
     cp -r "$(pwd)" "$APP_DIR"
   else
     # 让用户指定仓库地址
-    read -rp "请输入 Git 仓库地址（例如 https://github.com/你的用户名/graduation-blessing.git）: " REPO_URL
+    read -rp "请输入 Git 仓库地址（例如 https://github.com/2924205056/graduation-blessing.git）: " REPO_URL
     if [ -z "$REPO_URL" ]; then err "仓库地址不能为空"; exit 1; fi
     mkdir -p "$(dirname $APP_DIR)"
     git clone --depth=1 "$REPO_URL" "$APP_DIR"
@@ -89,21 +87,62 @@ else
 fi
 
 cd "$APP_DIR"
-log "安装依赖..."
-# 优先用 npm ci（需要 package-lock.json），失败再 fallback 到 npm install
-if [ -f "package-lock.json" ]; then
-  npm ci --omit=dev || npm install --omit=dev
+
+# ---------- Firebase 环境变量 ----------
+if [ ! -f ".env.local" ]; then
+  warn "未检测到 .env.local 文件，Firebase 配置为空将导致应用无法正常运行！"
+  echo
+  echo "  请在 Firebase Console (https://console.firebase.google.com) 获取以下配置："
+  echo "  - 项目设置 → 常规 → 你的应用 → Firebase SDK snippet → 配置"
+  echo
+  read -rp "是否现在输入 Firebase 配置？(y/n): " FB_CHOICE
+  if [ "$FB_CHOICE" = "y" ] || [ "$FB_CHOICE" = "Y" ]; then
+    read -rp "NEXT_PUBLIC_FIREBASE_API_KEY: " FB_API_KEY
+    read -rp "NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: " FB_AUTH_DOMAIN
+    read -rp "NEXT_PUBLIC_FIREBASE_PROJECT_ID: " FB_PROJECT_ID
+    read -rp "NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: " FB_STORAGE_BUCKET
+    read -rp "NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: " FB_MSG_SENDER_ID
+    read -rp "NEXT_PUBLIC_FIREBASE_APP_ID: " FB_APP_ID
+    read -rp "NEXT_PUBLIC_FIREBASE_DATABASE_URL: " FB_DATABASE_URL
+
+    cat > .env.local <<ENVEOF
+NEXT_PUBLIC_FIREBASE_API_KEY=${FB_API_KEY}
+NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=${FB_AUTH_DOMAIN}
+NEXT_PUBLIC_FIREBASE_PROJECT_ID=${FB_PROJECT_ID}
+NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=${FB_STORAGE_BUCKET}
+NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=${FB_MSG_SENDER_ID}
+NEXT_PUBLIC_FIREBASE_APP_ID=${FB_APP_ID}
+NEXT_PUBLIC_FIREBASE_DATABASE_URL=${FB_DATABASE_URL}
+ENVEOF
+    log ".env.local 已创建"
+  else
+    warn "跳过 Firebase 配置。你可以稍后手动创建 .env.local 文件再重新构建。"
+  fi
 else
-  npm install --omit=dev
+  log "检测到 .env.local，跳过 Firebase 配置"
+fi
+
+log "安装依赖..."
+# 需要完整依赖（含 devDependencies）才能执行 next build
+if [ -f "package-lock.json" ]; then
+  npm ci || npm install
+else
+  npm install
 fi
 
 log "构建生产包..."
-npm run build
+# 服务器部署使用标准 next build（非 Cloudflare）
+npx next build
 
 # ---------- 启动应用 ----------
 log "用 pm2 启动应用..."
 pm2 delete graduation-blessing > /dev/null 2>&1 || true
-pm2 start "npm start" --name graduation-blessing -- -- -p 3000
+# 优先使用 ecosystem.config.js
+if [ -f "ecosystem.config.js" ]; then
+  pm2 start ecosystem.config.js
+else
+  pm2 start "npm start" --name graduation-blessing -- -- -p 3000
+fi
 pm2 save
 pm2 startup systemd -u root --hp /root 2>/dev/null || true
 
@@ -188,5 +227,5 @@ log "常用命令:"
 log "  pm2 status                  查看进程状态"
 log "  pm2 logs graduation-blessing -n 100 --lines 100  查看日志"
 log "  pm2 restart graduation-blessing  重启应用"
-log "  cd $APP_DIR && git pull && npm run build && pm2 restart graduation-blessing   更新部署"
+log "  cd $APP_DIR && git pull && npx next build && pm2 restart graduation-blessing   更新部署"
 log "=============================================="
