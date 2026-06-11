@@ -1,18 +1,16 @@
 import type { NextConfig } from "next";
-import { resolve } from "path";
 
 const nextConfig: NextConfig = {
-  turbopack: {
-    root: resolve('.'),
-  },
+  // 生产环境优化
+  productionBrowserSourceMaps: false,
+  poweredByHeader: false,
+  compress: true,
+  // 允许较大的请求体（上传图片用）
   experimental: {
     serverActions: {
       bodySizeLimit: "10mb",
     },
   },
-  productionBrowserSourceMaps: false,
-  poweredByHeader: false,
-  compress: true,
 };
 
 export default nextConfig;
