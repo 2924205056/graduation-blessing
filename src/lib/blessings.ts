@@ -1,20 +1,26 @@
 import { Blessing } from '@/types/blessing';
 
-// 简易内存缓存（开发/无 KV 时用）—— Cloudflare 生产环境会走 KV
 const memoryStore: { list: Blessing[] } = { list: [] };
+
+function envVal(key: string): string | undefined {
+  if (typeof process !== 'undefined' && process.env) {
+    return process.env[key];
+  }
+  return undefined;
+}
 
 function isCloudflareKVConfigured(): boolean {
   return Boolean(
-    process.env.CLOUDFLARE_API_TOKEN &&
-    process.env.CLOUDFLARE_ACCOUNT_ID &&
-    process.env.CLOUDFLARE_KV_NAMESPACE_ID
+    envVal('CLOUDFLARE_API_TOKEN') &&
+    envVal('CLOUDFLARE_ACCOUNT_ID') &&
+    envVal('CLOUDFLARE_KV_NAMESPACE_ID')
   );
 }
 
 const KV_KEY = 'blessing:data';
 
 function kvUrl(key: string): string {
-  return `https://api.cloudflare.com/client/v4/accounts/${process.env.CLOUDFLARE_ACCOUNT_ID}/storage/kv/namespaces/${process.env.CLOUDFLARE_KV_NAMESPACE_ID}/values/${encodeURIComponent(key)}`;
+  return `https://api.cloudflare.com/client/v4/accounts/${envVal('CLOUDFLARE_ACCOUNT_ID')}/storage/kv/namespaces/${envVal('CLOUDFLARE_KV_NAMESPACE_ID')}/values/${encodeURIComponent(key)}`;
 }
 
 async function kvGet<T>(key: string): Promise<T | null> {
@@ -22,11 +28,9 @@ async function kvGet<T>(key: string): Promise<T | null> {
     const res = await fetch(kvUrl(key), {
       method: 'GET',
       headers: {
-        'Authorization': `Bearer ${process.env.CLOUDFLARE_API_TOKEN}`,
+        'Authorization': `Bearer ${envVal('CLOUDFLARE_API_TOKEN')}`,
       },
-      // 禁用 Next.js 缓存，保证每次都读到最新数据
-      cache: 'no-store',
-    } as any);
+    });
     if (!res.ok) return null;
     const text = await res.text();
     if (!text) return null;
@@ -42,11 +46,11 @@ async function kvPut(key: string, value: any): Promise<void> {
     const res = await fetch(kvUrl(key), {
       method: 'PUT',
       headers: {
-        'Authorization': `Bearer ${process.env.CLOUDFLARE_API_TOKEN}`,
+        'Authorization': `Bearer ${envVal('CLOUDFLARE_API_TOKEN')}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(value),
-    } as any);
+    });
     if (!res.ok) {
       const text = await res.text();
       console.warn('kvPut failed:', key, text.slice(0, 200));
