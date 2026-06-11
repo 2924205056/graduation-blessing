@@ -1,5 +1,3 @@
-export const runtime = 'edge';
-
 import { NextResponse } from 'next/server';
 import { getBlessings, saveBlessing, clearScreen, getAllBlessings } from '@/lib/blessings';
 import { Blessing } from '@/types/blessing';
